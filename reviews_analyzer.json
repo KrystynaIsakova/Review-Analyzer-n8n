@@ -1,0 +1,404 @@
+{
+  "name": "reviews_analyzer",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://raw.githubusercontent.com/KrystynaIsakova/data/refs/heads/main/reviews_clean_subset_200.csv",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -960,
+        -256
+      ],
+      "id": "b5cc79ff-304e-4e2a-956b-70d4311e97a5",
+      "name": "Download CSV"
+    },
+    {
+      "parameters": {
+        "options": {
+          "delimiter": ",",
+          "headerRow": true
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -784,
+        -112
+      ],
+      "id": "73c57d03-425c-4dd4-9b82-7a1c399383c1",
+      "name": "Extract reviews"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "52fb4abc-ff5a-4a2c-8486-3d836b7d7b4d",
+              "leftValue": "={{ $json.stars.toNumber() }}",
+              "rightValue": 3,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -544,
+        -112
+      ],
+      "id": "8218e9b4-9768-465b-8a71-71474e9e916f",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"topic\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"course_content\",\n        \"difficulty\",\n        \"instructor\",\n        \"assignments\",\n        \"platform\",\n        \"other\"\n      ]\n    },\n    \"problem\": {\n      \"type\": \"string\"\n    },\n    \"severity\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"low\",\n        \"medium\",\n        \"high\"\n      ]\n    }\n  },\n  \"required\": [\n    \"topic\",\n    \"problem\",\n    \"severity\"\n  ],\n  \"additionalProperties\": false\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        96,
+        -256
+      ],
+      "id": "d01ad463-1648-4481-85ec-e6054903433c",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are analyzing student reviews of online courses.\n\nAnalyze the following review:\n\n{{ $json.review_content }}\n\nIdentify the main reason for the student's dissatisfaction.\n\nClassify it into exactly one category:\n- course_content\n- difficulty\n- instructor\n- assignments\n- platform\n- other\n\nAlso provide a short description of the problem.\n\nDo not infer information that is not present in the review.",
+        "hasOutputParser": true,
+        "batching": {
+          "batchSize": 5,
+          "delayBetweenBatches": 12
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -320,
+        -496
+      ],
+      "id": "7950dcd2-f351-4065-b4ca-dcb17c1b4e40",
+      "name": "Analyze review text with Gemini"
+    },
+    {
+      "parameters": {
+        "model": "google/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        -272
+      ],
+      "id": "7fff409c-2086-4c73-90c9-9e5df1de6797",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "jsZvYJMMB86B7a8d",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldsToSummarize": {
+          "values": [
+            {
+              "field": "output.topic"
+            }
+          ]
+        },
+        "fieldsToSplitBy": "output.topic",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.summarize",
+      "typeVersion": 1.1,
+      "position": [
+        336,
+        -192
+      ],
+      "id": "a28d3fb2-a7d4-4c82-b32a-428eaf11c667",
+      "name": "Summarize Topics"
+    },
+    {
+      "parameters": {
+        "fieldsToSummarize": {
+          "values": [
+            {
+              "field": "output.severity"
+            }
+          ]
+        },
+        "fieldsToSplitBy": "output.severity",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.summarize",
+      "typeVersion": 1.1,
+      "position": [
+        304,
+        -560
+      ],
+      "id": "81a88ef1-e21c-4257-ae25-04dae40dfb8b",
+      "name": "Summarize Sevirity"
+    },
+    {
+      "parameters": {
+        "fieldsToSummarize": {
+          "values": [
+            {
+              "field": "review_id"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.summarize",
+      "typeVersion": 1.1,
+      "position": [
+        -240,
+        64
+      ],
+      "id": "560d3fc7-0f1f-4d58-9370-8313b67afb77",
+      "name": "Summarize Positive"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        720,
+        -224
+      ],
+      "id": "f8c0f1fc-69a3-40b2-ab2a-c764842e6d37",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(item => item.json);\n\nlet positive = 0;\nlet lowRated = 0;\nlet topics = [];\nlet severities = [];\n\nfor (const row of rows) {\n  if (row.count_review_id !== undefined) {\n    positive = row.count_review_id;\n  }\n\n  if (row.output_topic !== undefined) {\n    topics.push({\n      topic: row.output_topic,\n      count: row.count_output_topic\n    });\n  }\n\n  if (row.output_severity !== undefined) {\n    severities.push({\n      severity: row.output_severity,\n      count: row.count_output_severity\n    });\n\n    lowRated += row.count_output_severity;\n  }\n}\n\ntopics.sort((a, b) => b.count - a.count);\nseverities.sort((a, b) => b.count - a.count);\n\nconst report = `\n# Course Reviews Report\n\n## Overview\n\nTotal reviews: ${positive + lowRated}\nPositive reviews (4–5★): ${positive}\nLow-rated reviews (1–3★): ${lowRated}\n\n## Main Issues\n\n${topics.map(x => `- ${x.topic}: ${x.count}`).join(\"\\n\")}\n\n## Severity\n\n${severities.map(x => `- ${x.severity}: ${x.count}`).join(\"\\n\")}\n`;\n\nreturn [{\n  json: {\n    report\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        160
+      ],
+      "id": "85de7b28-e783-44d4-936a-83195278d3c7",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1120,
+        -272
+      ],
+      "id": "58e2060f-12dc-4afa-80f0-35da2ca3e46c",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "=report",
+        "binaryPropertyName": "=data",
+        "options": {
+          "fileName": "course_reviews_report.md"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1152,
+        160
+      ],
+      "id": "d25173b2-42e9-47b2-88a2-fd241a3bdc03",
+      "name": "Convert to File"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Download CSV": {
+      "main": [
+        [
+          {
+            "node": "Extract reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract reviews": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Analyze review text with Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Summarize Positive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Analyze review text with Gemini",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analyze review text with Gemini",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze review text with Gemini": {
+      "main": [
+        [
+          {
+            "node": "Summarize Sevirity",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Summarize Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Sevirity": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Summarize Positive": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Topics": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Download CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "45f81331-f43e-490d-abae-0eca18812933",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "33a99351a034ef7a521beaa634c7eeb973c1432c1c47ca9dfd3c46c72bd164b4"
+  },
+  "nodeGroups": [],
+  "id": "mnVP1rcStLSNA52U",
+  "tags": []
+}
